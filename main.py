@@ -7,9 +7,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 with open('token.txt', 'r') as file:
     TOKEN = file.readline().strip()
-
+#
 REACTION_THRESHOLD = 10
 REACTION_EMOJI = '💀'  # Skull emoji
+
+# REACTION_THRESHOLD = 1
+# REACTION_EMOJI = '📷'
 
 intents = discord.Intents.all()  # Enables all intents.
 
@@ -100,7 +103,7 @@ def create_fake_discord_message(username: str, timestamp, message, avatar_path: 
     width = 800
     padding = 40
 
-    font_message = ImageFont.truetype("ggsans.ttf", 26)
+    font_message = ImageFont.truetype("ggsansmedium.ttf", 26)
 
     wrapped_text = textwrap.fill(message, width=60)
     lines = wrapped_text.split('\n')
