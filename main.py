@@ -9,8 +9,8 @@ with open('token.txt', 'r') as file:
     TOKEN = file.readline().strip()
 
 GUILD_ID = 1154768347481772092
-REACTION_THRESHOLD = 8
-REACTION_EMOJI = '💀'  # Camera emoji
+REACTION_THRESHOLD = 10
+REACTION_EMOJI = '💀'  # Skull emoji
 
 intents = discord.Intents.all()  # Enables all intents.
 
