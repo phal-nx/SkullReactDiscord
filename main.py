@@ -9,8 +9,8 @@ with open('token.txt', 'r') as file:
     TOKEN = file.readline().strip()
 
 GUILD_ID = 1154768347481772092
-REACTION_THRESHOLD = 10
-REACTION_EMOJI = '💀'  # Skull emoji
+REACTION_THRESHOLD = 1
+REACTION_EMOJI = '📷'  # Skull emoji
 
 intents = discord.Intents.all()  # Enables all intents.
 
@@ -29,6 +29,18 @@ async def on_raw_reaction_add(payload):
         message = await channel.fetch_message(payload.message_id)
 
         if sum([react.count for react in message.reactions if react.emoji == REACTION_EMOJI]) == REACTION_THRESHOLD:
+            # Get image attachments
+            image_attachment_paths = []
+            for attachment in message.attachments:
+                attachment_url = attachment.url.split('?')[0]
+                if attachment_url.endswith(('png', 'jpg', 'jpeg')):
+                    attachment_path = f"attachment_{attachment.id}.png"
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(attachment.url) as resp:
+                            if resp.status == 200:
+                                with open(attachment_path, 'wb') as f:
+                                    image_attachment_paths.append(attachment_path)
+                                    f.write(await resp.read())
 
             for guild in bot.guilds:
                 target_channel = discord.utils.get(guild.text_channels, name="😭-insane-sentences")
@@ -51,7 +63,8 @@ async def on_raw_reaction_add(payload):
                 # Create fake Discord message as an image
                 timestamp = message.created_at.strftime('%Y-%m-%d %I:%M %p')
 
-                img = create_fake_discord_message(message.author.name, timestamp, message.content, avatar_path)
+                img = create_fake_discord_message(message.author.name, timestamp, message, avatar_path,
+                                                  image_attachment_paths)
 
                 # Save the image
                 img_path = "message_image.png"
@@ -67,18 +80,20 @@ async def on_raw_reaction_add(payload):
                 import os
                 os.remove(img_path)
                 os.remove(avatar_path)
+                for image_path in image_attachment_paths:
+                    os.remove(image_path)
 
 
-
-def create_fake_discord_message(username, timestamp, message_content, avatar_path):
+def create_fake_discord_message(username: str, timestamp, message, avatar_path: str,
+                                image_attachments=None):
     width = 800
     padding = 20
 
     font_message = ImageFont.truetype("ggsans.ttf", 26)
-    wrapped_text = textwrap.fill(message_content, width=60)
+    wrapped_text = textwrap.fill(message.content, width=60)
     lines = wrapped_text.split('\n')
 
-    # Adjust height based on number of lines and font size
+# Adjust height based on number of lines and font size
     per_line_height = font_message.getsize('A')[1] + 5  # using 'A' as a representative character
     dynamic_height = (len(lines) + 3) * per_line_height  # +3 for username, timestamp, and some spacing
 
@@ -95,7 +110,6 @@ def create_fake_discord_message(username, timestamp, message_content, avatar_pat
     circular_avatar = Image.composite(avatar, Image.new("RGBA", avatar.size, (0, 0, 0, 0)), mask)
     img.paste(circular_avatar, (10, 25), mask)
 
-
     # Add username and timestamp
     font_username = ImageFont.truetype("ggsansbold.ttf", 26)
     font_timestamp = ImageFont.truetype("ggsansmedium.ttf", 20)
@@ -110,7 +124,59 @@ def create_fake_discord_message(username, timestamp, message_content, avatar_pat
         draw.text((140, y_text), line, font=font_message, fill="#DCDDDE")  # Moved text a bit right to accommodate avatar
         y_text += font_message.getsize(line)[1] + 5
 
-    return img
+    if image_attachments:
+        # List to store each attachment image after resizing
+        resized_attachments = []
+        aspect_ratios = []
+
+        # Fetch each attached image and calculate their aspect ratios
+        for attachment_path in image_attachments:
+            attachment_img = Image.open(attachment_path)
+            aspect_ratios.append(attachment_img.width / attachment_img.height)
+
+        # Calculate new widths for all attachments based on their aspect ratios
+        total_aspect_ratio = sum(aspect_ratios)
+        new_widths = [(ratio / total_aspect_ratio) * width for ratio in aspect_ratios]
+
+        # Resize images based on calculated new widths while maintaining aspect ratio
+        for i, attachment_path in enumerate(image_attachments):
+            attachment_img = Image.open(attachment_path)
+            if attachment_img.width > new_widths[i]:
+                new_height = int(new_widths[i] / aspect_ratios[i])
+                resized_img = attachment_img.resize((int(new_widths[i]), new_height), Image.ANTIALIAS)
+            else:
+                resized_img = attachment_img
+            resized_attachments.append(resized_img)
+
+        # Calculate new combined image height
+        max_img_height = max([img.height for img in resized_attachments])
+        new_img_height = dynamic_height + max_img_height + padding
+
+        # Create the new combined image and paste the original message onto it
+        combined_img = Image.new("RGB", (width, new_img_height), "#36393F")
+        combined_img.paste(img, (0, 0))
+
+        # Paste each resized attached image side by side below the message
+        x_offset = 0
+        for resized_img in resized_attachments:
+            combined_img.paste(resized_img, (x_offset, dynamic_height))
+            x_offset += resized_img.width
+
+        # # Calculate new image height
+        # new_img_height = dynamic_height + sum([img.height for img in resized_attachments]) + (
+        #             len(resized_attachments) * padding)
+        # combined_img = Image.new("RGB", (width, new_img_height), "#36393F")
+        # combined_img.paste(img, (0, 0))
+        # y_offset = dynamic_height
+        #
+        # # Paste each resized attached image
+        # for resized_img in resized_attachments:
+        #     combined_img.paste(resized_img, (padding, y_offset))
+        #     y_offset += resized_img.height + padding
+    else:
+        combined_img = img
+
+    return combined_img
 
 
 bot.run(TOKEN)
