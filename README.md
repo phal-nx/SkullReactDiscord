@@ -20,7 +20,7 @@ A Discord bot that listens for reactions on messages. When a certain reaction th
 1. **Token File**: Save your bot token in a file named `token.txt`. This will keep your token secure and separate from your main code. The bot will read the token from this file.
 2. **Dependencies**: Install the required libraries using pip:
    ```bash
-   pip install discord.py aiohttp pillow
+   pip install -r requirements.txt
    ```
 ### Configuration:
 - TOKEN: Your bot token, read from the token.txt file.
